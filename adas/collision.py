@@ -324,14 +324,14 @@ class CollisionAvoidance:
                 'response_level': 'low',
                 'visual_alert': 'CAUTION',
                 'audible_alert': None,
-                'braking': 0,
-                'steering': None
+                'braking': 0.1,  # Light braking instead of 0
+                'steering': 'minimal'  # Minimal steering instead of None
             }
         else:
             return {
                 'response_level': 'none',
                 'visual_alert': None,
                 'audible_alert': None,
-                'braking': 0,
-                'steering': None
+                'braking': 0.05,  # Very light braking instead of 0
+                'steering': 'maintain'  # Maintain current steering instead of None
             }

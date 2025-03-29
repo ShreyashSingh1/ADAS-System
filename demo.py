@@ -342,31 +342,312 @@ def generate_vehicle_path(image, num_points=10):
     
     return path
 
+def create_highway_scenario(width=1280, height=720):
+    """Create a highway driving scenario with multiple vehicles
+    
+    Args:
+        width: Image width
+        height: Image height
+        
+    Returns:
+        Tuple of (image, objects, path)
+    """
+    # Create highway background
+    image = np.ones((height, width, 3), dtype=np.uint8) * 120  # Gray road
+    
+    # Draw road markings (wider for highway)
+    cv2.rectangle(image, (0, 0), (width, height), (70, 70, 70), -1)  # Dark gray road
+    
+    # Draw more lane markings for highway (4 lanes)
+    lane_width = width // 4
+    for i in range(1, 4):
+        x = i * lane_width
+        cv2.line(image, (x, 0), (x, height), (255, 255, 255), 2)  # White lane markings
+    
+    # Draw dashed center lines for all lanes
+    for i in range(4):
+        center_x = (i * lane_width) + (lane_width // 2)
+        for y in range(0, height, 40):
+            cv2.line(image, (center_x, y), (center_x, y + 20), (255, 255, 255), 2)
+    
+    # Draw horizon
+    horizon_y = height // 4  # Higher horizon for highway
+    cv2.line(image, (0, horizon_y), (width, horizon_y), (200, 200, 200), 1)
+    
+    # Draw sky
+    cv2.rectangle(image, (0, 0), (width, horizon_y), (255, 255, 255), -1)  # White sky
+    
+    # Add more vehicles (highway traffic)
+    image_with_vehicles, vehicles = add_vehicles(image, num_vehicles=8)
+    
+    # No pedestrians on highway
+    final_image = image_with_vehicles
+    pedestrians = []
+    
+    # All objects
+    all_objects = vehicles + pedestrians
+    
+    # Generate a path in the second lane from right
+    path = []
+    lane_center = 3 * lane_width - lane_width // 2  # Second lane from right
+    for i in range(10):
+        y = height - (i * height // 10)
+        # Straight path for highway
+        x = lane_center
+        path.append((x, y))
+    
+    return final_image, all_objects, path
+
+def create_urban_scenario(width=1280, height=720):
+    """Create an urban driving scenario with vehicles and pedestrians
+    
+    Args:
+        width: Image width
+        height: Image height
+        
+    Returns:
+        Tuple of (image, objects, path)
+    """
+    # Create urban background
+    image = np.ones((height, width, 3), dtype=np.uint8) * 120  # Gray road
+    
+    # Draw road markings
+    cv2.rectangle(image, (0, 0), (width, height), (70, 70, 70), -1)  # Dark gray road
+    
+    # Draw lane markings (2 lanes for urban)
+    lane_width = width // 2
+    x = lane_width
+    cv2.line(image, (x, 0), (x, height), (255, 255, 255), 2)  # White lane markings
+    
+    # Draw dashed center line
+    center_x = width // 2
+    for y in range(0, height, 40):
+        cv2.line(image, (center_x, y), (center_x, y + 20), (255, 255, 255), 2)
+    
+    # Draw horizon
+    horizon_y = height // 3
+    cv2.line(image, (0, horizon_y), (width, horizon_y), (200, 200, 200), 1)
+    
+    # Draw sky
+    cv2.rectangle(image, (0, 0), (width, horizon_y), (255, 255, 255), -1)  # White sky
+    
+    # Draw buildings on both sides
+    for i in range(5):
+        # Left buildings
+        building_height = np.random.randint(50, 150)
+        building_width = np.random.randint(80, 200)
+        building_x = i * 200
+        building_y = horizon_y - building_height
+        cv2.rectangle(image, (building_x, building_y), (building_x + building_width, horizon_y), 
+                     (100, 100, 100), -1)
+        
+        # Right buildings
+        building_height = np.random.randint(50, 150)
+        building_width = np.random.randint(80, 200)
+        building_x = width - (i * 200) - building_width
+        building_y = horizon_y - building_height
+        cv2.rectangle(image, (building_x, building_y), (building_x + building_width, horizon_y), 
+                     (120, 120, 120), -1)
+    
+    # Add vehicles (fewer in urban)
+    image_with_vehicles, vehicles = add_vehicles(image, num_vehicles=3)
+    
+    # Add more pedestrians in urban
+    final_image, pedestrians = add_pedestrians(image_with_vehicles, num_pedestrians=5)
+    
+    # All objects
+    all_objects = vehicles + pedestrians
+    
+    # Generate a path with turns (urban driving)
+    path = []
+    for i in range(10):
+        y = height - (i * height // 10)
+        # Add some turns for urban scenario
+        x = width // 2 + int(100 * np.sin(i / 5 * np.pi))
+        path.append((x, y))
+    
+    return final_image, all_objects, path
+
+def create_bad_weather_scenario(width=1280, height=720):
+    """Create a bad weather (rain) driving scenario
+    
+    Args:
+        width: Image width
+        height: Image height
+        
+    Returns:
+        Tuple of (image, objects, path)
+    """
+    # Create base image
+    image = generate_sample_image(width, height)
+    
+    # Add rain effect
+    for _ in range(1000):
+        x = np.random.randint(0, width)
+        y = np.random.randint(0, height)
+        length = np.random.randint(5, 15)
+        angle = np.pi / 4  # 45 degrees
+        x2 = int(x + length * np.cos(angle))
+        y2 = int(y + length * np.sin(angle))
+        cv2.line(image, (x, y), (x2, y2), (200, 200, 255), 1)
+    
+    # Reduce visibility (add fog)
+    overlay = np.ones((height, width, 3), dtype=np.uint8) * 200  # Light gray fog
+    alpha = 0.3  # Fog intensity
+    image = cv2.addWeighted(image, 1 - alpha, overlay, alpha, 0)
+    
+    # Add vehicles (fewer visible in bad weather)
+    image_with_vehicles, vehicles = add_vehicles(image, num_vehicles=3)
+    
+    # Add pedestrians
+    final_image, pedestrians = add_pedestrians(image_with_vehicles, num_pedestrians=2)
+    
+    # All objects
+    all_objects = vehicles + pedestrians
+    
+    # Generate a path
+    path = generate_vehicle_path(final_image)
+    
+    # Reduce confidence of objects due to bad weather
+    for obj in all_objects:
+        obj['confidence'] *= 0.7  # Reduced confidence in bad weather
+    
+    return final_image, all_objects, path
+
+def create_night_scenario(width=1280, height=720):
+    """Create a night driving scenario
+    
+    Args:
+        width: Image width
+        height: Image height
+        
+    Returns:
+        Tuple of (image, objects, path)
+    """
+    # Create base image
+    image = generate_sample_image(width, height)
+    
+    # Darken the image for night
+    image = (image * 0.3).astype(np.uint8)  # Darken everything
+    
+    # Draw headlight effect (cone of light in front)
+    mask = np.zeros((height, width), dtype=np.uint8)
+    center_x = width // 2
+    center_y = height - 50
+    # Create a triangle for headlight beam
+    pts = np.array([[center_x - 200, center_y], [center_x + 200, center_y], [center_x, center_y - 400]])
+    cv2.fillPoly(mask, [pts], 255)
+    # Apply the mask to brighten that area
+    for c in range(3):
+        image[:,:,c] = np.where(mask > 0, np.minimum(image[:,:,c] * 2.5, 255).astype(np.uint8), image[:,:,c])
+    
+    # Add vehicles with headlights
+    image_with_vehicles, vehicles = add_vehicles(image, num_vehicles=3)
+    
+    # Add headlights to vehicles
+    for vehicle in vehicles:
+        if 'centroid' in vehicle:
+            x, y = vehicle['centroid']
+            # Add two headlights
+            light_radius = 5
+            light_spacing = 15
+            cv2.circle(image_with_vehicles, (int(x - light_spacing), int(y)), light_radius, (255, 255, 200), -1)
+            cv2.circle(image_with_vehicles, (int(x + light_spacing), int(y)), light_radius, (255, 255, 200), -1)
+            # Add glow around headlights
+            cv2.circle(image_with_vehicles, (int(x - light_spacing), int(y)), light_radius*3, (100, 100, 50), -1, cv2.LINE_AA)
+            cv2.circle(image_with_vehicles, (int(x + light_spacing), int(y)), light_radius*3, (100, 100, 50), -1, cv2.LINE_AA)
+    
+    # Add pedestrians (fewer at night)
+    final_image, pedestrians = add_pedestrians(image_with_vehicles, num_pedestrians=1)
+    
+    # All objects
+    all_objects = vehicles + pedestrians
+    
+    # Generate a path
+    path = generate_vehicle_path(final_image)
+    
+    # Reduce confidence of objects due to night conditions
+    for obj in all_objects:
+        obj['confidence'] *= 0.6  # Reduced confidence at night
+    
+    return final_image, all_objects, path
+
 def main():
-    """Main function to run the ADAS demo"""
+    """Main function to run the ADAS demo with different scenarios"""
     # Initialize ADAS system
     adas_system = ADASSystem()
     visualizer = ADASVisualizer()
     
-    # Generate sample road image
-    road_image = generate_sample_image()
+    # Available scenarios
+    scenarios = {
+        1: ("Highway Driving", create_highway_scenario),
+        2: ("Urban Driving", create_urban_scenario),
+        3: ("Bad Weather Driving", create_bad_weather_scenario),
+        4: ("Night Driving", create_night_scenario)
+    }
     
-    # Add vehicles and pedestrians
-    image_with_vehicles, vehicles = add_vehicles(road_image, num_vehicles=4)
-    final_image, pedestrians = add_pedestrians(image_with_vehicles, num_pedestrians=3)
+    # Print available scenarios
+    print("Available ADAS Demo Scenarios:")
+    for key, (name, _) in scenarios.items():
+        print(f"{key}. {name}")
     
-    # Combine all objects
-    all_objects = vehicles + pedestrians
+    # Get user choice or use default
+    try:
+        choice = int(input("\nSelect a scenario (1-4) or press Enter for default (Highway): ") or "1")
+        if choice not in scenarios:
+            choice = 1
+    except ValueError:
+        choice = 1
     
-    # Generate a sample path
-    current_path = generate_vehicle_path(final_image)
+    # Get selected scenario
+    scenario_name, scenario_func = scenarios[choice]
+    print(f"\nRunning ADAS Demo with {scenario_name} scenario...")
+    
+    # Generate scenario data
+    final_image, all_objects, current_path = scenario_func()
     
     # Process camera data (using pre-detected objects for demo)
     camera_objects = adas_system.process_camera_data(final_image, all_objects)
     
-    # Create empty LIDAR and radar data for demo
+    # Create LIDAR and radar data for demo
+    # In a real system, these would come from actual sensors
     lidar_objects = []
     radar_objects = []
+    
+    # For demo purposes, generate some synthetic LIDAR and radar data from camera objects
+    for obj in camera_objects:
+        if 'centroid' in obj and 'distance' in obj:
+            # Create synthetic LIDAR object
+            # Create bbox format expected by fusion.py [x_min, y_min, z_min, x_max, y_max, z_max]
+            x_center = obj['distance']
+            y_center = obj['centroid'][0] / 100
+            z_center = 0
+            
+            # Set dimensions based on object type
+            x_size, y_size, z_size = [1, 2, 1] if obj['type'] == 'pedestrian' else [2, 4, 1.5]
+            
+            lidar_obj = {
+                'id': f"lidar_{obj['id']}",
+                'type': obj['type'],
+                'bbox': [
+                    x_center - x_size/2, y_center - y_size/2, z_center - z_size/2,
+                    x_center + x_size/2, y_center + y_size/2, z_center + z_size/2
+                ],
+                'position': [x_center, y_center, z_center],
+                'dimensions': [x_size, y_size, z_size],
+                'confidence': obj['confidence'] * 0.9
+            }
+            lidar_objects.append(lidar_obj)
+            
+            # Create synthetic radar object
+            radar_obj = {
+                'id': f"radar_{obj['id']}",
+                'type': obj['type'],
+                'position': [obj['distance'] * 1.05, obj['centroid'][0] / 100 * 1.1, 0],
+                'velocity': [obj.get('radial_velocity', 0), 0, 0],
+                'confidence': obj['confidence'] * 0.85
+            }
+            radar_objects.append(radar_obj)
     
     # Fuse sensor data
     fused_objects = adas_system.fuse_sensor_data(camera_objects, lidar_objects, radar_objects)
@@ -387,12 +668,13 @@ def main():
     )
     
     # Save visualization
-    visualizer.save_visualization(visualization, 'output.png')
+    output_file = f"output_{scenario_name.lower().replace(' ', '_')}.png"
+    visualizer.save_visualization(visualization, output_file)
     
     # Display visualization
     visualizer.display_visualization(visualization)
     
-    print("ADAS Demo completed. Visualization saved to 'output.png'")
+    print(f"ADAS Demo completed. Visualization saved to '{output_file}'")
     
     # Print response information
     print("\nADAS Response:")
